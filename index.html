@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Kaçan Balık</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-light: #818cf8;
+            --accent: #f59e0b;
+            --danger: #ef4444; 
+            --success: #10b981;
+            --dark-bg: #0b0f19;
+            --card-bg: rgba(20, 25, 40, 0.85);
+            --glass-border: rgba(255, 255, 255, 0.12);
+            --text-main: #ffffff;
+            --text-muted: #94a3b8;
+            --font-display: 'Outfit', sans-serif;
+            --font-body: 'Inter', sans-serif;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: var(--font-body);
+            background-color: var(--dark-bg);
+            color: var(--text-main);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 15px;
+            overflow: auto; /* Değiştirdik: hidden -> auto */
+            position: relative;
+        }
+
+        /* --- ARKA PLAN & EFEKTLER --- */
+        #event-layer { position: absolute; top:0; left:0; width:100%; height:100%; pointer-events: none; z-index: 10; overflow: hidden; }
+        .bg-blob { position: absolute; border-radius: 50%; filter: blur(80px); z-index: -2; opacity: 0.6; animation: floatBlob 10s infinite alternate; }
+        .blob-1 { width: 350px; height: 350px; background: #4f46e5; top: -80px; left: -80px; }
+        .blob-2 { width: 450px; height: 450px; background: #ec4899; bottom: -120px; right: -120px; animation-delay: -5s; }
+        @keyframes floatBlob { from { transform: translate(0, 0); } to { transform: translate(30px, 50px); } }
+
+        .floating-emoji { position: absolute; font-size: 40px; opacity: 0.15; animation: floatEmoji linear infinite; pointer-events: none; }
+        @keyframes floatEmoji { 0% { transform: translateY(100vh); } 100% { transform: translateY(-100vh); } }
+
+        /* --- ANA UI --- */
+        .app-container {
+            width: 100%; max-width: 560px;
+            background: var(--card-bg);
+            backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+            border: 1px solid var(--glass-border); border-radius: 40px;
+            box-shadow: 0 40px 80px -12px rgba(0,0,0,0.7);
+            position: relative; display: flex; flex-direction: column;
+            min-height: unset; /* Değiştirdik: 750px -> unset */
+            height: auto;
+            transition: all 0.3s ease; z-index: 5;
+            overflow-y: auto; /* Ekledik */
+        }
+
+        .shake-screen { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
+        @keyframes shake { 10%, 90% { transform: translate3d(-4px, 0, 0); } 20%, 80% { transform: translate3d(8px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-12px, 0, 0); } 40%, 60% { transform: translate3d(12px, 0, 0); } }
+
+        /* HEADER */
+        .app-header { padding: 30px 20px 10px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .logo {
+            font-family: var(--font-display); font-size: 32px; font-weight: 900; margin: 0;
+            background: linear-gradient(to right, #fbbf24 0%, #f59e0b 50%, #d97706 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            cursor: pointer; filter: drop-shadow(0 0 15px rgba(245, 158, 11, 0.4));
+        }
+        .logo-icon { font-size: 40px; color: #fbbf24; }
+        .slogan { font-size: 13px; opacity: 0.7; margin-top: 5px; }
+
+        /* SECTIONS */
+        .view-section { display: none; padding: 25px; height: auto; /* Değiştirdik: 100% -> auto */ overflow-y: auto; padding-bottom: 80px; }
+        .view-section.active { display: block; animation: slideIn 0.4s ease; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* MENU GRID */
+        .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
+        .menu-card {
+            background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border);
+            padding: 20px; border-radius: 28px; cursor: pointer;
+            display: flex; flex-direction: column; align-items: center; text-align: center; gap: 15px;
+            height: 240px; justify-content: center; transition: 0.3s;
+        }
+        .menu-card:hover { transform: translateY(-8px); background: rgba(255,255,255,0.06); box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
+        .menu-icon-box {
+            width: 80px; height: 80px; border-radius: 24px; display: flex; align-items: center; justify-content: center;
+            font-size: 36px; background: linear-gradient(135deg, #4f46e5, #818cf8); color: white;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.4); margin-bottom: 5px;
+        }
+        .menu-card:nth-child(2) .menu-icon-box { background: linear-gradient(135deg, #d97706, #fbbf24); }
+
+        /* CALCULATOR STYLES */
+        .step-indicator { display: flex; gap: 8px; justify-content: center; margin-bottom: 30px; }
+        .step-dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.15); transition: 0.3s; }
+        .step-dot.active { background: var(--primary-light); width: 40px; border-radius: 12px; box-shadow: 0 0 15px var(--primary); }
+        
+        .asset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .asset-btn {
+            background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border);
+            border-radius: 20px; padding: 25px 10px; cursor: pointer; transition: 0.2s;
+            display: flex; flex-direction: column; align-items: center; gap: 10px;
+        }
+        .asset-btn:hover { background: rgba(255,255,255,0.08); }
+        .asset-btn.selected { border-color: var(--primary-light); background: rgba(79, 70, 229, 0.2); }
+        .asset-btn i { font-size: 32px; color: var(--text-muted); }
+        .asset-btn.selected i { color: #fff; }
+
+        .chip { flex: 1; padding: 12px; background: rgba(255,255,255,0.08); border-radius: 12px; font-size: 12px; font-weight: 600; cursor: pointer; text-align: center; color:#ccc;}
+        .chip:hover { background: var(--primary); color:white; }
+
+        /* GAME STYLES */
+        .game-header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--glass-border); padding-bottom: 15px; }
+        .game-year-badge { background: #fff; color: #000; padding: 6px 16px; border-radius: 12px; font-family: var(--font-display); font-weight: 800; font-size: 20px; }
+        .game-cash { color: var(--accent); font-weight: 800; font-size: 22px; }
+
+        /* NEWS TOAST */
+        .news-toast {
+            background: linear-gradient(90deg, #4f46e5 0%, #6366f1 100%); border-left: 5px solid white;
+            color: white; padding: 15px 20px; border-radius: 16px; margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: none; 
+            animation: slideInRight 0.5s; position: relative; overflow: hidden;
+        }
+        .news-icon-bg { position: absolute; right: -10px; bottom: -10px; font-size: 60px; opacity: 0.2; transform: rotate(-15deg); }
+        @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+        /* COMMON INPUTS & BUTTONS */
+        .input-box { width: 100%; background: rgba(15, 23, 42, 0.6); border: 2px solid var(--glass-border); border-radius: 18px; padding: 18px; color: white; font-size: 22px; font-weight: 700; text-align: center; outline: none; transition: 0.3s; position: relative; }
+        .input-box:focus { border-color: var(--primary-light); background: rgba(0,0,0,0.4); }
+        .input-box.suffix::after { content: ' TL'; position: absolute; right: 20px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 18px; }
+
+        .btn-primary { width: 100%; padding: 18px; background: linear-gradient(90deg, #4f46e5 0%, #6366f1 100%); color: white; border: none; border-radius: 20px; font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 20px; box-shadow: 0 10px 30px rgba(79, 70, 229, 0.4); display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .btn-primary:hover { transform: scale(1.02); filter: brightness(1.1); }
+        .btn-back { width: 100%; padding: 15px; background: transparent; border: 1px solid var(--glass-border); color: var(--text-muted); border-radius: 16px; margin-top: 10px; cursor: pointer; }
+        .btn-back:hover { background: rgba(255,255,255,0.05); color: white; }
+
+        /* RESULT CARDS (CALCULATOR) */
+        .result-card { background: linear-gradient(180deg, rgba(20, 25, 40, 0.95) 0%, rgba(10, 15, 25, 0.95) 100%); border-radius: 28px; padding: 30px; text-align: center; border: 1px solid var(--glass-border); position: relative; overflow: hidden; margin-bottom: 20px; }
+        .result-card::after { content: ''; position: absolute; top:-50%; left:-50%; width:200%; height:200%; background: radial-gradient(circle, rgba(79, 70, 229, 0.2) 0%, transparent 60%); animation: rotate 15s linear infinite; pointer-events: none; }
+        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        .comp-item { display: flex; align-items: center; justify-content: space-between; padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+        
+        /* JOKER BTNS */
+        .joker-bar { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
+        .joker-btn { background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); padding: 12px; border-radius: 16px; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 12px; }
+        .joker-btn:hover:not(:disabled) { background: rgba(255,255,255,0.1); color: white; border-color: var(--primary-light); }
+        .joker-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* UTILS */
+        .hidden { display: none !important; }
+        .overlay-bg { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(11, 15, 25, 0.95); z-index: 50; display: none; justify-content: center; align-items: center; backdrop-filter: blur(10px); animation: fadeIn 0.3s; }
+        .floating-event-emoji { position: absolute; font-size: 80px; z-index: 20; animation: floatAcross 4s linear forwards; top: 30%; filter: drop-shadow(0 0 20px rgba(0,0,0,0.5)); }
+        @keyframes floatAcross { 0% { left: -20%; transform: rotate(0deg); } 100% { left: 120%; transform: rotate(20deg); } }
+        @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+
+        /* UI IMPROVEMENTS */
+        @media (max-width: 480px) {
+            .menu-grid { grid-template-columns: 1fr; }
+            .asset-grid { grid-template-columns: 1fr; }
+        }
+
+        #themeToggle { position: absolute; top: 20px; right: 20px; background: none; border: none; color: var(--text-main); cursor: pointer; font-size: 20px; }
+        :root.light {
+            --dark-bg: #f0f4f8;
+            --card-bg: rgba(255, 255, 255, 0.85);
+            --text-main: #0b0f19;
+            --text-muted: #64748b;
+            --glass-border: rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-primary { transition: transform 0.2s, filter 0.2s; }
+        .input-box:invalid { border-color: var(--danger); }
+
+        .date-select { display: flex; gap: 10px; }
+        .date-select select { flex: 1; }
+
+    </style>
+</head>
+<body>
+
+<div class="bg-blob blob-1"></div>
+<div class="bg-blob blob-2"></div>
+<div id="event-layer"></div>
+
+<div class="app-container" id="appContainer">
+    
+    <div class="app-header">
+        <h1 class="logo" onclick="location.reload()">Kaçan Balık</h1>
+        <i class="fa-solid fa-fish logo-icon"></i>
+        <div class="slogan">Finansal Simülasyon Merkezi</div>
+        <button id="themeToggle"><i class="fa-solid fa-moon"></i></button>
+    </div>
+
+    <div id="view-menu" class="view-section active">
+        <div class="menu-grid">
+            <div class="menu-card" onclick="switchView('calculator')">
+                <div class="menu-icon-box"><i class="fa-solid fa-calculator"></i></div>
+                <div class="menu-info">
+                    <h3 style="font-size:20px; font-weight:800; margin-bottom:5px;">Geçmişi Hesapla</h3>
+                    <p style="font-size:13px; opacity:0.7;">"O zaman alsaydım..."</p>
+                </div>
+            </div>
+            
+            <div class="menu-card" onclick="switchView('game')">
+                <div class="menu-icon-box"><i class="fa-solid fa-gamepad"></i></div>
+                <div class="menu-info">
+                    <h3 style="font-size:20px; font-weight:800; margin-bottom:5px;">Yatırım Oyunu</h3>
+                    <p style="font-size:13px; opacity:0.8; color:#fbbf24;">Haber Modu Aktif 🔥</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="view-calculator" class="view-section">
+        
+        <div id="calc-step1" class="calc-step active">
+            <div class="step-indicator">
+                <div class="step-dot active"></div><div class="step-dot"></div><div class="step-dot"></div>
+            </div>
+            <h2 style="text-align: center; margin-bottom: 20px;">Neye Yatırım Yaptın?</h2>
+            <div class="asset-grid">
+                <div class="asset-btn" onclick="nextCalcStep(2, 'gold')"><i class="fa-solid fa-coins"></i><span>Altın</span></div>
+                <div class="asset-btn" onclick="nextCalcStep(2, 'usd')"><i class="fa-solid fa-dollar-sign"></i><span>Dolar</span></div>
+                <div class="asset-btn" onclick="nextCalcStep(2, 'euro')"><i class="fa-solid fa-euro-sign"></i><span>Euro</span></div>
+                <div class="asset-btn" onclick="nextCalcStep(2, 'silver')"><i class="fa-solid fa-ring"></i><span>Gümüş</span></div>
+                <div class="asset-btn" onclick="nextCalcStep(2, 'btc')"><i class="fa-brands fa-bitcoin"></i><span>Bitcoin</span></div>
+                <div class="asset-btn" onclick="nextCalcStep(2, 'emlak')"><i class="fa-solid fa-house"></i><span>Emlak</span></div>
+                <div class="asset-btn" onclick="nextCalcStep(2, 'car')" style="grid-column: span 2;"><i class="fa-solid fa-car"></i><span>Otomobil</span></div>
+            </div>
+            <button class="btn-back" onclick="switchView('menu')">Ana Menü</button>
+        </div>
+
+        <div id="calc-step2" class="calc-step hidden">
+            <div class="step-indicator">
+                <div class="step-dot"></div><div class="step-dot active"></div><div class="step-dot"></div>
+            </div>
+            <h2 style="text-align: center;">Yatırım Tutarı</h2>
+            <div style="margin: 30px 0;">
+                <input type="number" id="calcAmount" class="input-box suffix" placeholder="0" min="0">
+                <div style="display:flex; gap:10px; margin-top:15px;">
+                    <div class="chip" onclick="addCalcAmount(10000)">+10k</div>
+                    <div class="chip" onclick="addCalcAmount(50000)">+50k</div>
+                    <div class="chip" onclick="addCalcAmount(100000)">+100k</div>
+                </div>
+            </div>
+            <button class="btn-primary" onclick="nextCalcStep(3)">Devam Et <i class="fa-solid fa-arrow-right"></i></button>
+            <button class="btn-back" onclick="nextCalcStep(1)">Geri</button>
+        </div>
+
+        <div id="calc-step3" class="calc-step hidden">
+            <div class="step-indicator">
+                <div class="step-dot"></div><div class="step-dot"></div><div class="step-dot active"></div>
+            </div>
+            <h2 style="text-align: center;">Hangi Tarih?</h2>
+            <div style="margin: 30px 0;" class="date-select">
+                <select id="calcMonth" class="input-box">
+                    <option value="1">Ocak</option>
+                    <option value="2">Şubat</option>
+                    <option value="3">Mart</option>
+                    <option value="4">Nisan</option>
+                    <option value="5">Mayıs</option>
+                    <option value="6">Haziran</option>
+                    <option value="7">Temmuz</option>
+                    <option value="8">Ağustos</option>
+                    <option value="9">Eylül</option>
+                    <option value="10">Ekim</option>
+                    <option value="11">Kasım</option>
+                    <option value="12">Aralık</option>
+                </select>
+                <select id="calcYear" class="input-box">
+                </select>
+            </div>
+            <button class="btn-primary" onclick="calculateResult()">HESAPLA <i class="fa-solid fa-rocket"></i></button>
+            <button class="btn-back" onclick="nextCalcStep(2)">Geri</button>
+        </div>
+
+        <div id="calc-stepFinal" class="calc-step hidden">
+            <h2 style="text-align: center; font-size: 20px; margin-bottom: 20px;">Finansal Rapor</h2>
+            <div id="inputInfo" style="font-size:14px; opacity:0.6; margin-bottom:20px; text-align:center;">2020 Ocak'ta 500 TL</div>
+            
+            <div class="result-card">
+                <div style="font-size:14px; opacity:0.6; margin-bottom:10px;">BUGÜNKÜ DEĞER</div>
+                <div id="resTotalCalc" style="font-size:48px; font-weight:900; color:white; margin-bottom:10px;">0 TL</div>
+                <div id="resBadgeCalc" style="display:inline-block; padding:8px 16px; border-radius:20px; font-weight:800; background:#22c55e20; color:#4ade80;">Kar: 0 TL</div>
+            </div>
+
+            <h3 style="font-size:14px; opacity:0.6; letter-spacing:1px; margin-bottom:15px;">KARŞILAŞTIRMA</h3>
+            <div id="compList"></div>
+            
+            <button class="btn-primary" onclick="resetCalculator()">Yeni Hesaplama</button>
+            <button class="btn-back" onclick="switchView('menu')">Menüye Dön</button>
+        </div>
+    </div>
+
+    <div id="view-game" class="view-section">
+        
+        <div id="gameStartScreen">
+            <div style="text-align:center; padding: 40px 10px;">
+                <div style="font-size:80px; margin-bottom: 20px;">🎢</div>
+                <h2 style="font-size: 28px; font-weight:800;">Zaman Yolculuğu</h2>
+                <p style="color: var(--text-muted); font-size: 15px; margin-bottom: 30px; line-height:1.6;">
+                    2010 yılındasın. 1 Milyon TL'n var.<br>
+                    Ülke gündemi, krizler ve darbeler kararlarını etkileyecek!
+                </p>
+                <input type="text" id="playerName" class="input-box" placeholder="Yatırımcı Adı" maxlength="15" style="margin-bottom:20px;">
+                <button class="btn-primary" onclick="startGame()">TARİHİ BAŞLAT <i class="fa-solid fa-play"></i></button>
+                <button class="btn-back" onclick="switchView('menu')">Vazgeç</button>
+            </div>
+        </div>
+
+        <div id="gamePlayScreen" class="hidden">
+            <div class="game-header-bar">
+                <div onclick="switchView('menu')" style="cursor: pointer; color: var(--danger); font-size: 20px;"><i class="fa-solid fa-right-from-bracket"></i></div>
+                <div class="game-year-badge" id="gYear">2010</div>
+                <div class="game-stats">
+                    <div style="font-size:10px; color:#aaa;">SERVET</div>
+                    <div class="game-cash" id="gNetWorth">1.000.000 ₺</div>
+                </div>
+            </div>
+
+            <div id="newsToast" class="news-toast">
+                <div class="news-icon-bg" id="newsBgIcon">📢</div>
+                <div style="font-size:11px; font-weight:800; margin-bottom:4px;"><i class="fa-solid fa-bell"></i> SON DAKİKA</div>
+                <div id="newsText" style="font-size:14px; font-weight:500; line-height:1.4;">...</div>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:12px;">
+                <div style="background:rgba(15,23,42,0.6); padding:10px; border-radius:16px; border:1px solid var(--glass-border); display:flex; align-items:center; gap:10px;">
+                    <div style="width:40px; height:40px; background:rgba(255,255,255,0.1); border-radius:10px; display:flex; justify-content:center; align-items:center; color:#fbbf24;"><i class="fa-solid fa-coins"></i></div>
+                    <input type="number" class="game-spinner input-box suffix" id="invGold" placeholder="Altın" step="50000" style="flex:1; padding:8px; font-size:16px; text-align:right; border:none; background:transparent;" min="0">
+                </div>
+                <div style="background:rgba(15,23,42,0.6); padding:10px; border-radius:16px; border:1px solid var(--glass-border); display:flex; align-items:center; gap:10px;">
+                    <div style="width:40px; height:40px; background:rgba(255,255,255,0.1); border-radius:10px; display:flex; justify-content:center; align-items:center; color:#22c55e;"><i class="fa-solid fa-dollar-sign"></i></div>
+                    <input type="number" class="game-spinner input-box suffix" id="invUsd" placeholder="Dolar" step="50000" style="flex:1; padding:8px; font-size:16px; text-align:right; border:none; background:transparent;" min="0">
+                </div>
+                <div style="background:rgba(15,23,42,0.6); padding:10px; border-radius:16px; border:1px solid var(--glass-border); display:flex; align-items:center; gap:10px;">
+                    <div style="width:40px; height:40px; background:rgba(255,255,255,0.1); border-radius:10px; display:flex; justify-content:center; align-items:center; color:#3b82f6;"><i class="fa-solid fa-chart-line"></i></div>
+                    <input type="number" class="game-spinner input-box suffix" id="invBist" placeholder="Borsa" step="50000" style="flex:1; padding:8px; font-size:16px; text-align:right; border:none; background:transparent;" min="0">
+                </div>
+                <div style="background: rgba(79, 70, 229, 0.15); border:1px solid #6366f1; padding:10px; border-radius:16px; display:flex; align-items:center; gap:10px;">
+                    <div style="width:40px; height:40px; background:#6366f1; border-radius:10px; display:flex; justify-content:center; align-items:center; color:white;"><i class="fa-solid fa-wallet"></i></div>
+                    <input type="text" class="input-box suffix" id="invCash" value="1.000.000" readonly style="flex:1; padding:8px; font-size:16px; text-align:right; border:none; background:transparent; color:white;">
+                </div>
+            </div>
+
+            <div class="joker-bar">
+                <button class="joker-btn" id="jokerInsider" onclick="useJoker('insider')"><i class="fa-solid fa-user-secret"></i> <span>Derin Analiz</span></button>
+                <button class="joker-btn" id="jokerTrend" onclick="useJoker('trend')"><i class="fa-solid fa-magnifying-glass-chart"></i> <span>MB Duyumu</span></button>
+            </div>
+
+            <button class="btn-primary" onclick="playTurn()">YILI BİTİR <i class="fa-regular fa-calendar-check"></i></button>
+        </div>
+
+        <div id="turnResultOverlay" class="overlay-bg">
+            <div style="background:#1e293b; padding:40px; border-radius:30px; text-align:center; border:1px solid #ffffff20; width:90%; max-width:400px;">
+                <div style="font-size:60px; font-weight:900; opacity:0.1; margin-bottom:-20px;">RAPOR</div>
+                <h2 style="margin:20px 0;">Yıl Bitti</h2>
+                <div class="report-val" id="resWorth" style="font-size:40px; font-weight:800; margin-bottom:10px;">0 ₺</div>
+                <div id="resDiff" style="padding:5px 15px; border-radius:10px; display:inline-block; font-weight:700;">...</div>
+                <br><br>
+                <button class="btn-primary" onclick="closeOverlay()">SONRAKİ YIL <i class="fa-solid fa-forward"></i></button>
+            </div>
+        </div>
+
+        <div id="gameEndScreen" class="hidden" style="text-align:center;">
+            <h1 style="font-size:40px;">OYUN BİTTİ</h1>
+            <div style="font-size:16px; color:#aaa;">2026 Servetin:</div>
+            <div id="finalScore" style="font-size:50px; font-weight:900; color:#818cf8; margin:20px 0;">0 ₺</div>
+            <div id="gameFeedback" style="padding:20px; background:rgba(255,255,255,0.05); border-radius:20px; margin-bottom:20px;">...</div>
+            <button class="btn-primary" onclick="switchView('menu')">BAŞA DÖN</button>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    // --- TEK MERKEZİ VERİ TABANI ---
+    const db = {
+        gold: { name: "Gram Altın", icon: '<i class="fa-solid fa-coins"></i>', prices: {2010:60, 2011:80, 2012:95, 2013:85, 2014:90, 2015:100, 2016:125, 2017:150, 2018:220, 2019:280, 2020:450, 2021:550, 2022:980, 2023:1700, 2024:2600, 2025:4600, 2026:7350} },
+        usd: { name: "ABD Doları", icon: '<i class="fa-solid fa-dollar-sign"></i>', prices: {2010:1.50, 2011:1.67, 2012:1.80, 2013:1.90, 2014:2.19, 2015:2.72, 2016:3.02, 2017:3.65, 2018:4.81, 2019:5.70, 2020:7.01, 2021:8.90, 2022:16.50, 2023:25.50, 2024:32.00, 2025:40.00, 2026:43.40} },
+        euro: { name: "Euro", icon: '<i class="fa-solid fa-euro-sign"></i>', prices: {2010:2.00, 2011:2.32, 2012:2.30, 2013:2.50, 2014:2.90, 2015:3.02, 2016:3.34, 2017:4.10, 2018:5.67, 2019:6.35, 2020:8.05, 2021:10.50, 2022:17.40, 2023:27.50, 2024:35.00, 2025:44.00, 2026:50.20} },
+        silver: { name: "Gümüş", icon: '<i class="fa-solid fa-ring"></i>', prices: {2010:1.20, 2011:2.20, 2012:1.80, 2013:1.40, 2014:1.30, 2015:1.40, 2016:1.80, 2017:2.00, 2018:2.70, 2019:3.20, 2020:6.20, 2021:9.50, 2022:12.00, 2023:21.00, 2024:32.00, 2025:55.00, 2026:165} },
+        btc: { name: "Bitcoin", icon: '<i class="fa-brands fa-bitcoin"></i>', prices: {2010:0.15, 2011:8.35, 2012:14.4, 2013:247, 2014:1138.8, 2015:734.4, 2016:1721.4, 2017:14965, 2018:36576, 2019:42180, 2020:77011, 2021:418300, 2022:462000, 2023:765000, 2024:1440000, 2025:3200000, 2026:3906000} },
+        emlak: { name: "Emlak", icon: '<i class="fa-solid fa-house"></i>', prices: {2010:100000, 2011:110000, 2012:125000, 2013:140000, 2014:160000, 2015:190000, 2016:220000, 2017:260000, 2018:320000, 2019:350000, 2020:450000, 2021:700000, 2022:1500000, 2023:2500000, 2024:3000000, 2025:3800000, 2026:4100000} },
+        car: { name: "Otomobil", icon: '<i class="fa-solid fa-car"></i>', prices: {2010:32000, 2011:35000, 2012:38000, 2013:42000, 2014:48000, 2015:55000, 2016:65000, 2017:75000, 2018:95000, 2019:110000, 2020:190000, 2021:350000, 2022:600000, 2023:850000, 2024:1000000, 2025:1100000, 2026:1150000} },
+        bist: { name: "BIST 100", icon: '<i class="fa-solid fa-chart-line"></i>', prices: {2010:1.0, 2011:0.8, 2012:1.1, 2013:0.9, 2014:1.1, 2015:1.0, 2016:0.95, 2017:1.4, 2018:1.1, 2019:1.3, 2020:1.8, 2021:2.2, 2022:5.5, 2023:7.8, 2024:10.0, 2025:12.5, 2026:11.0} }
+    };
+
+    const newsDB = {
+        2010: { text: "Piyasalar sakin. Ekonomi stabil.", icon: "🇹🇷", effect: "none" },
+        2011: { text: "Suriye'de iç savaş başladı! Riskler artıyor.", icon: "⚠️", effect: "none" },
+        2013: { text: "GEZİ PARKI olayları! Borsa sert düştü, Dolar kıpırdandı.", icon: "🌳", effect: "shake-red" },
+        2015: { text: "Seçim belirsizliği ve koalisyon tartışmaları.", icon: "🗳️", effect: "none" },
+        2016: { text: "DARBE GİRİŞİMİ! Tanklar sokakta! Borsa çöküş riski!", icon: "🪖", effect: "tank-anim" },
+        2018: { text: "RAHİP KRİZİ! Trump tweet attı, Dolar rokete bağladı! 🚀", icon: "🇺🇸", effect: "money-rain" },
+        2020: { text: "PANDEMİ! COVID-19 dünyayı kilitledi. Altın güvenli liman!", icon: "🦠", effect: "virus-anim" },
+        2021: { text: "MB Başkanı değişti! Piyasada şok etkisi, TL değer kaybediyor.", icon: "📉", effect: "shake-red" },
+        2022: { text: "Enflasyon canavarı uyandı! KKM duyuruldu.", icon: "👹", effect: "none" },
+        2023: { text: "Büyük Deprem ve Tarihi Seçimler... Zor bir yıl.", icon: "💔", effect: "shake" },
+        2024: { text: "Sıkılaşma başladı. Faizler artıyor.", icon: "🏦", effect: "none" }
+    };
+
+    const inflationDB = {2010:8.57, 2011:6.47, 2012:8.89, 2013:7.49, 2014:8.85, 2015:7.67, 2016:7.78, 2017:11.14, 2018:16.33, 2019:15.18, 2020:12.28, 2021:19.6, 2022:72.31, 2023:53.86, 2024:64.77, 2025:40, 2026:30}; // Yaklaşık tarihi enflasyon oranları %
+
+    let gameState = { year: 2010, cash: 1000000, jokers: {insider:true, trend:true} };
+    let calcState = { asset: '', amount: 0, month: 1, year: 2020 };
+
+    // --- GENEL FONKSİYONLAR ---
+    function switchView(view) {
+        document.querySelectorAll('.view-section').forEach(el => {
+            el.classList.remove('active');
+            el.style.display = 'none';
+        });
+        const target = document.getElementById('view-' + view);
+        target.style.display = 'block';
+        setTimeout(() => target.classList.add('active'), 10);
+
+        if(view === 'game') resetGameUI();
+        if(view === 'calculator') resetCalculator();
+    }
+
+    function formatMoney(num) { return Math.floor(num).toLocaleString('tr-TR') + " ₺"; }
+
+    // Arka plan emojileri
+    const financialEmojis = ['💰', '📈', '📉', '💹', '🪙', '💵'];
+    function spawnFloatingEmoji() {
+        const el = document.createElement('div');
+        el.className = 'floating-emoji';
+        el.innerText = financialEmojis[Math.floor(Math.random() * financialEmojis.length)];
+        const side = Math.random() < 0.5 ? Math.random() * 30 : 70 + Math.random() * 30; /* Sol veya sağ */
+        el.style.left = side + '%';
+        el.style.animationDuration = (Math.random() * 10 + 20) + 's';
+        document.getElementById('event-layer').appendChild(el);
+        setTimeout(() => el.remove(), parseFloat(el.style.animationDuration) * 1000);
+    }
+    setInterval(spawnFloatingEmoji, 3000); // Her 3 saniyede bir yeni emoji
+
+    // --- HESAP MAKİNESİ FONKSİYONLARI ---
+    const yearSelect = document.getElementById("calcYear");
+    for(let i=2026; i>=2010; i--) { let op = document.createElement("option"); op.value=i; op.text=i; yearSelect.add(op); }
+    yearSelect.value = 2020;
+
+    function resetCalculator() {
+        document.querySelectorAll('.calc-step').forEach(s => { s.classList.remove('active'); s.classList.add('hidden'); });
+        document.getElementById('calc-step1').classList.remove('hidden');
+        document.getElementById('calc-step1').classList.add('active');
+        document.getElementById('calcAmount').value = '';
+        document.getElementById('calcMonth').value = 1;
+        document.getElementById('calcYear').value = 2020;
+        document.querySelectorAll('.asset-btn').forEach(b => b.classList.remove('selected'));
+        calcState = { asset: '', amount: 0, month: 1, year: 2020 };
+    }
+
+    function nextCalcStep(stepNum, val) {
+        if(val) {
+            calcState.asset = val;
+            document.querySelectorAll('.asset-btn').forEach(btn => btn.classList.remove('selected'));
+            event.target.classList.add('selected');
+        }
+
+        const steps = document.querySelectorAll('.calc-step');
+        steps.forEach(s => { s.classList.remove('active'); setTimeout(() => s.classList.add('hidden'), 200); });
+        
+        setTimeout(() => {
+            steps.forEach(s => s.classList.add('hidden'));
+            const next = document.getElementById(stepNum === 3 ? 'calc-step3' : (stepNum === 'Final' ? 'calc-stepFinal' : 'calc-step'+stepNum));
+            next.classList.remove('hidden');
+            next.classList.add('active');
+        }, 200);
+    }
+
+    function addCalcAmount(v) { 
+        let inp = document.getElementById('calcAmount');
+        inp.value = (parseFloat(inp.value)||0) + v; 
+    }
+
+    function calculateResult() {
+        let amount = parseFloat(document.getElementById('calcAmount').value);
+        let month = parseInt(document.getElementById('calcMonth').value);
+        let year = parseInt(document.getElementById('calcYear').value);
+        if(!amount || amount <= 0) { alert("Lütfen geçerli tutar gir!"); return; }
+
+        calcState.amount = amount;
+        calcState.month = month;
+        calcState.year = year;
+
+        let assetKey = calcState.asset;
+        let startPrice = db[assetKey].prices[year] || 1; 
+        let endPrice = db[assetKey].prices[2026];
+        let finalVal = (amount / startPrice) * endPrice;
+        let profit = finalVal - amount;
+
+        nextCalcStep('Final');
+        document.getElementById('inputInfo').innerText = `${year} ${document.getElementById('calcMonth').options[month-1].text}'ta ${formatMoney(amount)}`;
+        document.getElementById('resTotalCalc').innerText = formatMoney(finalVal);
+        let badge = document.getElementById('resBadgeCalc');
+        badge.innerText = (profit>=0 ? "Kar: " : "Zarar: ") + formatMoney(profit);
+        badge.style.background = profit>=0 ? "#22c55e20" : "#ef444420";
+        badge.style.color = profit>=0 ? "#4ade80" : "#f87171";
+
+        let html = "";
+        for(let key in db) {
+            if(key === assetKey || key === 'bist') continue;
+            let oStart = db[key].prices[year] || 1;
+            let oEnd = db[key].prices[2026];
+            let oVal = (amount / oStart) * oEnd;
+            let diff = oVal - finalVal;
+            let color = diff > 0 ? "#4ade80" : "#f87171";
+            
+            html += `
+            <div class="comp-item">
+                <div style="display:flex; gap:10px; align-items:center;">
+                    ${db[key].icon} <span>${db[key].name}</span>
+                </div>
+                <div style="color:${color}; font-weight:700;">${diff>0?"+":""}${formatMoney(diff)}</div>
+            </div>`;
+        }
+        document.getElementById('compList').innerHTML = html;
+        // Grafik oluşturma fonksiyonu çağrısı ve canvas elementleri silindiği için JS hata vermemesi adına bu kısım boş bırakılmıştır.
+    }
+
+    // --- OYUN FONKSİYONLARI ---
+    function resetGameUI() {
+        document.getElementById('gameStartScreen').style.display='block';
+        document.getElementById('gamePlayScreen').classList.add('hidden');
+        document.getElementById('gameEndScreen').classList.add('hidden');
+        document.getElementById('playerName').value='';
+    }
+
+    function startGame() {
+        if(!document.getElementById('playerName').value) { alert("Adını yaz!"); return; }
+        gameState = { year: 2010, cash: 1000000, jokers: {insider:true, trend:true} };
+        document.getElementById('gameStartScreen').style.display='none';
+        document.getElementById('gamePlayScreen').classList.remove('hidden');
+        document.getElementById('jokerInsider').disabled = false;
+        document.getElementById('jokerTrend').disabled = false;
+        updateGameStats();
+        triggerNews(2010);
+    }
+
+    function updateGameStats() {
+        document.getElementById('gYear').innerText = gameState.year;
+        document.getElementById('gNetWorth').innerText = formatMoney(gameState.cash);
+        document.getElementById('invGold').value = '';
+        document.getElementById('invUsd').value = '';
+        document.getElementById('invBist').value = '';
+        updateRemaining();
+    }
+
+    document.querySelectorAll('.game-spinner').forEach(inp => {
+        inp.addEventListener('input', updateRemaining);
+        inp.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            let delta = e.deltaY < 0 ? 50000 : -50000;
+            let current = parseFloat(inp.value) || 0;
+            let newVal = current + delta;
+            if (newVal < 0) newVal = 0;
+            let otherSums = Array.from(document.querySelectorAll('.game-spinner')).reduce((sum, el) => sum + (el === inp ? 0 : parseFloat(el.value) || 0), 0);
+            if (otherSums + newVal > gameState.cash) return;
+            inp.value = newVal;
+            updateRemaining();
+        });
+    });
+
+    function updateRemaining() {
+        let gold = parseFloat(document.getElementById('invGold').value) || 0;
+        let usd = parseFloat(document.getElementById('invUsd').value) || 0;
+        let bist = parseFloat(document.getElementById('invBist').value) || 0;
+        let rem = gameState.cash - (gold + usd + bist);
+        if (rem < 0) rem = 0; // Eksiye düşmesin
+        document.getElementById('invCash').value = formatMoney(rem);
+        document.getElementById('invCash').style.color = rem <= 0 ? '#ef4444' : 'white';
+    }
+
+    function triggerNews(year) {
+        const news = newsDB[year] || { text: "Piyasalar normal seyrinde.", icon: "📰", effect: "none" };
+        const toast = document.getElementById('newsToast');
+        document.getElementById('newsText').innerText = news.text;
+        document.getElementById('newsBgIcon').innerText = news.icon;
+        
+        toast.style.background = (news.effect.includes('shake') || news.effect.includes('anim')) 
+            ? "linear-gradient(90deg, #b91c1c 0%, #ef4444 100%)" 
+            : "linear-gradient(90deg, #4f46e5 0%, #6366f1 100%)";
+        
+        toast.style.display = 'block';
+        
+        const container = document.getElementById('appContainer');
+        container.classList.remove('shake-screen');
+        document.getElementById('event-layer').innerHTML = '';
+
+        if(news.effect === 'shake-red') {
+            container.classList.add('shake-screen');
+            document.body.style.backgroundColor = "#2a0a0a";
+            setTimeout(() => document.body.style.backgroundColor = "#0b0f19", 1000);
+        } else if(news.effect === 'tank-anim') {
+            container.classList.add('shake-screen');
+            spawnEmoji("🪖");
+        } else if(news.effect === 'virus-anim') {
+            spawnEmoji("🦠"); spawnEmoji("😷");
+        } else if(news.effect === 'money-rain') {
+            spawnEmoji("💸"); spawnEmoji("🚀");
+        }
+    }
+
+    function spawnEmoji(char) {
+        const el = document.createElement('div');
+        el.innerText = char; el.className = 'floating-event-emoji';
+        el.style.top = Math.random() * 50 + 20 + "%";
+        document.getElementById('event-layer').appendChild(el);
+        setTimeout(() => el.remove(), 4000);
+    }
+
+    function useJoker(type) {
+        if(!gameState.jokers[type]) return;
+        const year = gameState.year;
+        const next = year + 1;
+        if(next > 2026) return;
+
+        let rGold = (db.gold.prices[next] - db.gold.prices[year]) / db.gold.prices[year];
+        let rUsd = (db.usd.prices[next] - db.usd.prices[year]) / db.usd.prices[year];
+        let rBist = (db.bist.prices[next] - db.bist.prices[year]) / db.bist.prices[year];
+
+        let msg = "";
+        if(type === 'insider') {
+            let best = "Nakit"; let max = 0;
+            if(rGold > max) { max = rGold; best = "Altın"; }
+            if(rUsd > max) { max = rUsd; best = "Dolar"; }
+            if(rBist > max) { max = rBist; best = "Borsa"; }
+            msg = `🕵️‍♂️ Kulis Bilgisi: Balinalar ${best.toUpperCase()} topluyor!`;
+        } else {
+            let trend = "Yatay";
+            if(rGold > 0.3 || rUsd > 0.3) trend = "Devalüasyon Riski";
+            else if(rBist < -0.1) trend = "Borsa Düşüşte";
+            else if(rBist > 0.3) trend = "Borsa Rallisi";
+            msg = `📊 MB Raporu: Beklenti: ${trend}`;
+        }
+        alert(msg);
+        gameState.jokers[type] = false;
+        document.getElementById(type === 'insider' ? 'jokerInsider' : 'jokerTrend').disabled = true;
+    }
+
+    function playTurn() {
+        let gold = parseFloat(document.getElementById('invGold').value) || 0;
+        let usd = parseFloat(document.getElementById('invUsd').value) || 0;
+        let bist = parseFloat(document.getElementById('invBist').value) || 0;
+        let cash = gameState.cash - (gold + usd + bist);
+
+        if(cash < 0) { alert("Paran yetmiyor!"); return; }
+        
+        let cur = gameState.year;
+        let next = cur + 1;
+        if(next > 2026) { endGame(); return; }
+
+        let valGold = (gold / db.gold.prices[cur]) * db.gold.prices[next];
+        let valUsd = (usd / db.usd.prices[cur]) * db.usd.prices[next];
+        let valBist = (bist / db.bist.prices[cur]) * db.bist.prices[next];
+
+        // Enflasyon etkisi: Nakit erisin
+        let inflationRate = inflationDB[cur] / 100;
+        cash *= (1 - inflationRate);
+
+        // Vergi: Toplam kar üzerinden %10 (gerçeklik için)
+        let newTotal = cash + valGold + valUsd + valBist;
+        let profit = newTotal - gameState.cash;
+        if(profit > 0) {
+            newTotal -= profit * 0.1; // %10 vergi
+        }
+
+        let finalProfit = newTotal - gameState.cash;
+
+        document.getElementById('resWorth').innerText = formatMoney(newTotal);
+        let diffEl = document.getElementById('resDiff');
+        diffEl.innerText = (finalProfit>=0?"+":"") + formatMoney(finalProfit);
+        diffEl.style.color = finalProfit>=0 ? "#4ade80" : "#f87171";
+        diffEl.style.background = finalProfit>=0 ? "#22c55e20" : "#ef444420";
+
+        if(finalProfit>0) confetti({particleCount: 100, spread: 70, origin: { y: 0.6 }});
+        
+        gameState.cash = newTotal;
+        gameState.year = next;
+        
+        document.getElementById('turnResultOverlay').style.display = 'flex';
+    }
+
+    function closeOverlay() {
+        document.getElementById('turnResultOverlay').style.display = 'none';
+        if(gameState.year === 2026) endGame();
+        else { updateGameStats(); triggerNews(gameState.year); }
+    }
+
+    function endGame() {
+        document.getElementById('gamePlayScreen').classList.add('hidden');
+        document.getElementById('gameEndScreen').classList.remove('hidden');
+        document.getElementById('finalScore').innerText = formatMoney(gameState.cash);
+        let msg = gameState.cash < 2000000 ? "Enflasyona yenildin..." : "Harika yönettin! 🐋";
+        document.getElementById('gameFeedback').innerText = msg;
+    }
+
+    // Tema Değiştirici
+    document.getElementById('themeToggle').addEventListener('click', () => {
+        document.documentElement.classList.toggle('light');
+        const icon = document.getElementById('themeToggle').querySelector('i');
+        icon.classList.toggle('fa-moon');
+        icon.classList.toggle('fa-sun');
+    });
+</script>
+</body>
+</html>
