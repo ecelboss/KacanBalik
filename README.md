@@ -39,3 +39,5 @@ Finish the Journey: Reach 2026 and see if you've become a "Whale" or lost your w
 
 📄 License
 This project is open-source. Feel free to fork and improve!
+
+https://ecelboss.github.io/KacanBalik/
